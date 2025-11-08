@@ -43,15 +43,13 @@ export function registerRoutes(app: Express): Server {
         loser.eloRating
       );
       
-      // Update ratings
-      await storage.updateParkRating(winner.id, newWinnerRating);
-      await storage.updateParkRating(loser.id, newLoserRating);
-      
-      // Record the vote
-      const vote = await storage.createVote({
-        winnerId: voteData.winnerId,
-        loserId: voteData.loserId,
-      });
+      // Record the vote and update ratings in a transaction
+      const vote = await storage.recordVoteWithRatings(
+        voteData.winnerId,
+        voteData.loserId,
+        newWinnerRating,
+        newLoserRating
+      );
       
       res.json({
         vote,

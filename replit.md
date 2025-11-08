@@ -1,10 +1,14 @@
-# SEO Meta Tag Analyzer
+# National Parks Ranker
 
 ## Overview
 
-This is an SEO Meta Tag Analyzer web application that allows users to analyze and validate SEO meta tags for any website URL. The application fetches a webpage, extracts meta tags, validates them against SEO best practices, and provides visual previews of how the page appears in Google search results, Facebook shares, and Twitter cards. It provides character count analysis, status indicators (optimal/warning/missing), and actionable recommendations for improving SEO.
+This is an interactive voting application for ranking America's National Parks using the chess ELO rating system. Users vote on parks head-to-head, and the app calculates rankings based on voting outcomes. The application features:
 
-The app features a comprehensive SEO Performance Dashboard that displays an overall SEO score via a doughnut chart, percentage scoring, performance descriptors (Excellent/Good/Fair/Needs Improvement/Poor), and KPI metrics showing the count of Passed Checks, Warnings, and Failed Checks.
+- **Head-to-Head Voting**: Users compare two random National Parks and vote for their favorite
+- **ELO Rating System**: Rankings are calculated using the chess ELO algorithm with K-factor of 32
+- **Live Rankings**: Real-time leaderboard showing all parks sorted by ELO rating
+- **Recent Activity**: Display of recent voting activity from the community
+- **Persistent Data**: All votes and ratings are stored in a PostgreSQL database
 
 ## User Preferences
 
@@ -17,33 +21,31 @@ Preferred communication style: Simple, everyday language.
 **Framework**: React with TypeScript using Vite as the build tool
 
 **UI Component Library**: shadcn/ui (Radix UI primitives) with Tailwind CSS for styling
-- Material Design aesthetic inspired by developer tools (Chrome DevTools, Linear)
-- Comprehensive component library including cards, buttons, forms, dialogs, and data display components
-- Custom design system with CSS variables for theming (light/dark mode support)
+- Clean, modern design with card-based layouts
+- Responsive grid system for desktop and mobile
+- Hover and active states for interactive elements
+- Loading states and smooth transitions
 
 **Routing**: wouter for lightweight client-side routing
 
 **State Management**: 
 - TanStack Query (React Query) for server state management and API data fetching
-- Local component state with React hooks
+- Automatic cache invalidation after voting
+- Loading and error states handled gracefully
 
-**Key UI Patterns**:
-- SEO Performance Dashboard displayed at the top of analysis results
-  - Doughnut chart visualization showing distribution of passed/warnings/failed checks
-  - Overall SEO score calculation: (passed + warnings * 0.5) / totalChecks * 100
-  - Performance level badges: Excellent (90%+), Good (75-89%), Fair (60-74%), Needs Improvement (40-59%), Poor (<40%)
-  - KPI metrics cards with color-coded icons for Passed Checks, Warnings, and Failed Checks
-- Category Breakdown section with visual category summaries
-  - Four category cards: Essential SEO, Open Graph, Twitter Card, Technical SEO
-  - Each card shows: category score, status badge, color-coded progress bar, and pass/warning/fail metrics
-  - Cards are clickable and smoothly scroll to detailed sections
-  - Category-specific scoring: Excellent (90%+), Good (70-89%), Fair (50-69%), Needs Work (<50%)
-  - Color-coded visual indicators: green (excellent), blue (good), yellow (fair), red (needs work)
-- Two-column desktop layout: Meta tags list (60%) and preview cards (40% sticky)
-- Single-column mobile layout with stacked components
-- Preview cards showing Google Search, Facebook, and Twitter appearances
-- Meta tag cards with expandable details, copy functionality, and status badges
-- Progressive disclosure: high-level summaries first, drill down to details on demand
+**Key Components**:
+- **VotingMatchup**: Displays two parks side-by-side with images, descriptions, and ELO ratings
+  - Click anywhere on park card to vote
+  - Disabled state during vote submission
+  - Visual feedback with loading indicators
+- **Rankings**: Shows top National Parks sorted by ELO rating
+  - Trophy icons for top 3 parks
+  - Badge display for ELO ratings
+  - Hover effects for better UX
+- **RecentVotes**: Displays recent voting activity
+  - Winner vs loser format
+  - Relative timestamps using date-fns
+  - Real-time updates after each vote
 
 ### Backend Architecture
 
@@ -54,54 +56,104 @@ Preferred communication style: Simple, everyday language.
 - Custom logging middleware for API request tracking
 - Static file serving in production
 
-**API Design**:
-- RESTful endpoint: `POST /api/analyze` accepts a URL and returns SEO analysis
-- Request validation using Zod schemas
-- Response includes categorized meta tags (essential, OpenGraph, Twitter, technical)
+**API Endpoints**:
+- `GET /api/matchup` - Returns two random parks for voting
+- `POST /api/vote` - Records a vote and updates ELO ratings (uses transaction for atomicity)
+- `GET /api/rankings` - Returns all parks sorted by ELO rating descending
+- `GET /api/recent-votes` - Returns recent voting activity with park details
 
-**Web Scraping**:
-- Cheerio for HTML parsing and meta tag extraction
-- Validates meta tags against optimal character ranges (title: 50-60 chars, description: 150-160 chars)
-- Status classification: optimal, present, missing, warning
+**ELO Rating System** (`server/elo.ts`):
+- Standard ELO formula: `New Rating = Old Rating + K * (Actual Score - Expected Score)`
+- Expected score calculated using: `1 / (1 + 10^((Opponent Rating - Player Rating) / 400))`
+- K-factor: 32 (standard for moderate sensitivity)
+- Ratings rounded to nearest integer
 
 ### Data Storage
 
-**Current Implementation**: In-memory storage using Map-based storage class (MemStorage)
-- User management support (getUser, getUserByUsername, createUser)
-- No persistent storage currently implemented
+**Database**: PostgreSQL (Neon serverless)
+- Configured with WebSocket support for Node.js environment
+- Drizzle ORM for type-safe database queries
+- Transaction support for atomic operations
 
-**Database Schema** (Drizzle ORM configured but not actively used):
-- PostgreSQL dialect configured via Neon Database serverless driver
-- Users table defined with id, username, password fields
-- Schema validation with drizzle-zod integration
+**Schema** (`shared/schema.ts`):
 
-### External Dependencies
+**Parks Table**:
+- `id` (varchar, UUID primary key)
+- `name` (text) - Park name
+- `location` (text) - State(s) where park is located
+- `description` (text) - Brief park description
+- `imageUrl` (text) - URL to park image
+- `eloRating` (integer, default: 1500) - Current ELO rating
 
-**Core Libraries**:
-- `cheerio` - Server-side HTML parsing and DOM manipulation for meta tag extraction
-- `@neondatabase/serverless` - PostgreSQL database driver for Neon (configured but not currently used)
-- `drizzle-orm` - TypeScript ORM for database operations (configured but not currently used)
+**Votes Table**:
+- `id` (varchar, UUID primary key)
+- `winnerId` (varchar, foreign key to parks) - ID of winning park
+- `loserId` (varchar, foreign key to parks) - ID of losing park
+- `timestamp` (timestamp, auto-generated) - When vote was cast
 
-**UI & Styling**:
-- `@radix-ui/*` - Headless UI component primitives (20+ components)
-- `tailwindcss` - Utility-first CSS framework
-- `class-variance-authority` - Type-safe variant styling
-- `lucide-react` - Icon library
-- `recharts` - Charting library for React (used for doughnut chart visualization in SEO dashboard)
+**Seed Data** (`server/seed-data.ts`):
+- 24 curated National Parks with descriptions and Unsplash images
+- All parks start at 1500 ELO rating
+- Automatically seeded on server startup if database is empty
 
-**Form & Validation**:
-- `react-hook-form` - Form state management
-- `@hookform/resolvers` - Validation resolver integration
-- `zod` - Schema validation for both client and server
+**Storage Layer** (`server/storage.ts`):
+- `getAllParks()` - Get all parks ordered by ELO rating
+- `getParkById(id)` - Get single park by ID
+- `getRandomMatchup()` - Get two random parks for voting
+- `recordVoteWithRatings()` - **Transactional method** that updates both park ratings and records vote atomically
+- `getRecentVotes(limit)` - Get recent votes with full park details
 
-**Development Tools**:
-- `vite` - Build tool and dev server
-- `tsx` - TypeScript execution for server
-- `esbuild` - Bundler for production builds
-- Replit-specific plugins for cartographer and dev banner
+### Data Flow
 
-**Data Fetching**:
-- `@tanstack/react-query` - Server state management
-- Native fetch API for HTTP requests
+1. User loads page → Fetches random matchup, rankings, and recent votes
+2. User votes on a park → POST to `/api/vote` with winner and loser IDs
+3. Backend:
+   - Fetches both parks from database
+   - Calculates new ELO ratings using chess algorithm
+   - **Atomically** updates both ratings and records vote in transaction
+   - Returns updated ratings
+4. Frontend:
+   - Invalidates all queries (matchup, rankings, recent votes)
+   - Refetches fresh data
+   - Displays success toast
 
-**Fonts**: Google Fonts (Inter, DM Sans, Fira Code, Geist Mono) loaded via CDN
+### Key Features
+
+**Transaction Safety**: Vote recording uses database transactions to ensure:
+- Both park ratings update successfully, or neither does
+- Vote is only recorded if ratings update successfully
+- Prevents inconsistent state if operation fails mid-process
+
+**Real-time Updates**: React Query automatically refetches and updates all sections after voting
+
+**Responsive Design**: Works on desktop, tablet, and mobile with appropriate layouts
+
+**Image Loading**: National Parks images loaded from Unsplash with proper aspect ratios
+
+**User Feedback**: Toast notifications for successful votes and error handling
+
+## Development
+
+### Running the Project
+```bash
+npm run dev  # Starts both Express backend and Vite frontend
+```
+
+### Database Migrations
+```bash
+npm run db:push  # Sync Drizzle schema to database
+```
+
+### Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string (automatically set by Replit)
+- Other Neon database variables set automatically
+
+## Recent Changes
+
+- **2024-11-08**: Initial implementation of National Parks voting app
+  - Created database schema for parks and votes
+  - Implemented ELO rating calculation system
+  - Built voting UI with matchup display
+  - Added rankings and recent votes displays
+  - Integrated Neon PostgreSQL with transaction support
+  - Seeded database with 24 National Parks

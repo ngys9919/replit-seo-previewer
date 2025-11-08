@@ -20,6 +20,7 @@ export interface IStorage {
   
   // Votes methods
   createVote(vote: InsertVote): Promise<Vote>;
+  recordVoteWithRatings(winnerId: string, loserId: string, newWinnerRating: number, newLoserRating: number): Promise<Vote>;
   getRecentVotes(limit: number): Promise<Array<Vote & { winner: Park; loser: Park }>>;
   
   // Utility
@@ -63,6 +64,24 @@ export class DbStorage implements IStorage {
   async createVote(vote: InsertVote): Promise<Vote> {
     const result = await db.insert(votes).values(vote).returning();
     return result[0];
+  }
+
+  async recordVoteWithRatings(
+    winnerId: string,
+    loserId: string,
+    newWinnerRating: number,
+    newLoserRating: number
+  ): Promise<Vote> {
+    // Use transaction to ensure atomicity
+    return await db.transaction(async (tx) => {
+      // Update both park ratings
+      await tx.update(parks).set({ eloRating: newWinnerRating }).where(eq(parks.id, winnerId));
+      await tx.update(parks).set({ eloRating: newLoserRating }).where(eq(parks.id, loserId));
+      
+      // Record the vote
+      const result = await tx.insert(votes).values({ winnerId, loserId }).returning();
+      return result[0];
+    });
   }
 
   async getRecentVotes(limit: number): Promise<Array<Vote & { winner: Park; loser: Park }>> {
