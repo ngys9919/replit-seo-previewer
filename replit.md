@@ -1,14 +1,10 @@
-# National Parks Ranker
+# SEO Meta Tag Analyzer
 
 ## Overview
 
-This is an interactive voting application for ranking America's National Parks using the chess ELO rating system. Users vote on parks head-to-head, and the app calculates rankings based on voting outcomes. The application features:
+This is an SEO Meta Tag Analyzer web application that allows users to analyze and validate SEO meta tags for any website URL. The application fetches a webpage, extracts meta tags, validates them against SEO best practices, and provides visual previews of how the page appears in Google search results, Facebook shares, and Twitter cards. It provides character count analysis, status indicators (optimal/warning/missing), and actionable recommendations for improving SEO.
 
-- **Head-to-Head Voting**: Users compare two random National Parks and vote for their favorite
-- **ELO Rating System**: Rankings are calculated using the chess ELO algorithm with K-factor of 32
-- **Live Rankings**: Real-time leaderboard showing all parks sorted by ELO rating
-- **Recent Activity**: Display of recent voting activity from the community
-- **Persistent Data**: All votes and ratings are stored in a PostgreSQL database
+The app features a comprehensive SEO Performance Dashboard that displays an overall SEO score via a doughnut chart, percentage scoring, performance descriptors (Excellent/Good/Fair/Needs Improvement/Poor), and KPI metrics showing the count of Passed Checks, Warnings, and Failed Checks.
 
 ## User Preferences
 
@@ -22,30 +18,41 @@ Preferred communication style: Simple, everyday language.
 
 **UI Component Library**: shadcn/ui (Radix UI primitives) with Tailwind CSS for styling
 - Clean, modern design with card-based layouts
-- Responsive grid system for desktop and mobile
-- Hover and active states for interactive elements
-- Loading states and smooth transitions
+- Comprehensive component library including cards, buttons, forms, dialogs, and data display components
+- Responsive grid system for desktop and mobile with two-column layout for meta tags and previews
 
 **Routing**: wouter for lightweight client-side routing
 
 **State Management**: 
 - TanStack Query (React Query) for server state management and API data fetching
-- Automatic cache invalidation after voting
-- Loading and error states handled gracefully
+- Local component state with React hooks for analysis results
 
-**Key Components**:
-- **VotingMatchup**: Displays two parks side-by-side with images, descriptions, and ELO ratings
-  - Click anywhere on park card to vote
-  - Disabled state during vote submission
-  - Visual feedback with loading indicators
-- **Rankings**: Shows top National Parks sorted by ELO rating
-  - Trophy icons for top 3 parks
-  - Badge display for ELO ratings
-  - Hover effects for better UX
-- **RecentVotes**: Displays recent voting activity
-  - Winner vs loser format
-  - Relative timestamps using date-fns
-  - Real-time updates after each vote
+**Key UI Components**:
+- **URLInput**: URL input form with validation and loading states
+  - Always prefixes with "https://"
+  - Analyze button disabled until valid URL entered
+  - Shows loading state during analysis
+- **SEO Performance Dashboard**: Displays at the top of analysis results
+  - Doughnut chart visualization showing distribution of passed/warnings/failed checks
+  - Overall SEO score calculation: (passed + warnings * 0.5) / totalChecks * 100
+  - Performance level badges: Excellent (90%+), Good (75-89%), Fair (60-74%), Needs Improvement (40-59%), Poor (<40%)
+  - KPI metrics cards with color-coded icons for Passed Checks, Warnings, and Failed Checks
+- **Category Breakdown**: Visual category summaries
+  - Four category cards: Essential SEO, Open Graph, Twitter Card, Technical SEO
+  - Each card shows: category score, status badge, color-coded progress bar, and pass/warning/fail metrics
+  - Cards are clickable and smoothly scroll to detailed sections
+  - Category-specific scoring: Excellent (90%+), Good (70-89%), Fair (50-69%), Needs Work (<50%)
+- **Preview Cards**: Shows how the page appears in different contexts
+  - Google Search Preview
+  - Facebook Share Preview
+  - Twitter Card Preview
+  - Sticky positioning on desktop for easy reference while scrolling
+- **Meta Tags Lists**: Detailed analysis of all meta tags by category
+  - Essential SEO Tags section
+  - Open Graph Tags section
+  - Twitter Card Tags section
+  - Technical SEO section
+  - Each tag card shows name, content, status badge, character count, and recommendations
 
 ### Backend Architecture
 
@@ -57,80 +64,84 @@ Preferred communication style: Simple, everyday language.
 - Static file serving in production
 
 **API Endpoints**:
-- `GET /api/matchup` - Returns two random parks for voting
-- `POST /api/vote` - Records a vote and updates ELO ratings (uses transaction for atomicity)
-- `GET /api/rankings` - Returns all parks sorted by ELO rating descending
-- `GET /api/recent-votes` - Returns recent voting activity with park details
+- `POST /api/analyze` - Accepts a URL and returns comprehensive SEO analysis
+  - Request: `{ url: string }`
+  - Response: SEOAnalysis object with categorized meta tags
+  - Validates URL format using Zod schemas
+  - Fetches and parses HTML using Cheerio
+  - Extracts all relevant meta tags
 
-**ELO Rating System** (`server/elo.ts`):
-- Standard ELO formula: `New Rating = Old Rating + K * (Actual Score - Expected Score)`
-- Expected score calculated using: `1 / (1 + 10^((Opponent Rating - Player Rating) / 400))`
-- K-factor: 32 (standard for moderate sensitivity)
-- Ratings rounded to nearest integer
+**Web Scraping**:
+- Cheerio library for HTML parsing and meta tag extraction
+- Validates meta tags against optimal character ranges
+  - Title: 50-60 characters optimal
+  - Description: 150-160 characters optimal
+- Status classification system:
+  - `optimal` - Tag present with ideal character count
+  - `present` - Tag exists but may not be optimal
+  - `warning` - Tag needs attention (too short or too long)
+  - `missing` - Tag is not present
 
 ### Data Storage
 
-**Database**: PostgreSQL (Neon serverless)
-- Configured with WebSocket support for Node.js environment
-- Drizzle ORM for type-safe database queries
-- Transaction support for atomic operations
+**Current Implementation**: No persistent storage required
+- Stateless analysis - each request is independent
+- No user data or analysis history stored
+- Empty storage interface for future extensibility
 
 **Schema** (`shared/schema.ts`):
-
-**Parks Table**:
-- `id` (varchar, UUID primary key)
-- `name` (text) - Park name
-- `location` (text) - State(s) where park is located
-- `description` (text) - Brief park description
-- `imageUrl` (text) - URL to park image
-- `eloRating` (integer, default: 1500) - Current ELO rating
-
-**Votes Table**:
-- `id` (varchar, UUID primary key)
-- `winnerId` (varchar, foreign key to parks) - ID of winning park
-- `loserId` (varchar, foreign key to parks) - ID of losing park
-- `timestamp` (timestamp, auto-generated) - When vote was cast
-
-**Seed Data** (`server/seed-data.ts`):
-- 24 curated National Parks with descriptions and Unsplash images
-- All parks start at 1500 ELO rating
-- Automatically seeded on server startup if database is empty
-
-**Storage Layer** (`server/storage.ts`):
-- `getAllParks()` - Get all parks ordered by ELO rating
-- `getParkById(id)` - Get single park by ID
-- `getRandomMatchup()` - Get two random parks for voting
-- `recordVoteWithRatings()` - **Transactional method** that updates both park ratings and records vote atomically
-- `getRecentVotes(limit)` - Get recent votes with full park details
+- `SEOAnalysisRequest` - URL validation schema
+- `MetaTag` - Individual meta tag with status and recommendations
+- `SEOAnalysis` - Complete analysis response with all categories
+  - `essentialTags[]` - Core SEO meta tags
+  - `openGraphTags[]` - Open Graph protocol tags
+  - `twitterTags[]` - Twitter Card meta tags
+  - `technicalTags[]` - Technical SEO elements
 
 ### Data Flow
 
-1. User loads page → Fetches random matchup, rankings, and recent votes
-2. User votes on a park → POST to `/api/vote` with winner and loser IDs
+1. User enters URL → Frontend validates URL format
+2. User clicks "Analyze SEO" → POST to `/api/analyze`
 3. Backend:
-   - Fetches both parks from database
-   - Calculates new ELO ratings using chess algorithm
-   - **Atomically** updates both ratings and records vote in transaction
-   - Returns updated ratings
+   - Fetches the webpage HTML
+   - Parses HTML with Cheerio
+   - Extracts meta tags from various selectors
+   - Validates character counts against optimal ranges
+   - Classifies each tag with status (optimal/present/warning/missing)
+   - Returns categorized analysis
 4. Frontend:
-   - Invalidates all queries (matchup, rankings, recent votes)
-   - Refetches fresh data
-   - Displays success toast
+   - Displays SEO Performance Dashboard with score
+   - Shows Category Breakdown with visual summaries
+   - Renders Preview cards for Google/Facebook/Twitter
+   - Lists all meta tags by category with recommendations
 
 ### Key Features
 
-**Transaction Safety**: Vote recording uses database transactions to ensure:
-- Both park ratings update successfully, or neither does
-- Vote is only recorded if ratings update successfully
-- Prevents inconsistent state if operation fails mid-process
+**Comprehensive Analysis**: Checks 20+ meta tags across 4 categories
+- Essential SEO (Title, Description, Keywords, Canonical, Robots)
+- Open Graph (OG Title, Description, Image, URL, Type, Site Name)
+- Twitter Cards (Card Type, Title, Description, Image, Site, Creator)
+- Technical SEO (Viewport, Charset, Language, Author, Theme Color)
 
-**Real-time Updates**: React Query automatically refetches and updates all sections after voting
+**Character Count Validation**: Compares against SEO best practices
+- Shows current character count vs optimal range
+- Provides specific recommendations for improvement
 
-**Responsive Design**: Works on desktop, tablet, and mobile with appropriate layouts
+**Visual Feedback**: Color-coded status system
+- Green for optimal tags
+- Yellow for warnings
+- Red for missing tags
+- Blue for present tags
 
-**Image Loading**: National Parks images loaded from Unsplash with proper aspect ratios
+**Preview Generation**: Shows real-world appearance
+- Google Search result preview
+- Facebook share card preview
+- Twitter card preview
 
-**User Feedback**: Toast notifications for successful votes and error handling
+**Responsive Design**: Works on desktop, tablet, and mobile
+- Two-column layout on desktop (meta tags left, previews right sticky)
+- Single-column stacked layout on mobile
+- Smooth scrolling to detailed sections from category cards
 
 ## Development
 
@@ -141,19 +152,20 @@ npm run dev  # Starts both Express backend and Vite frontend
 
 ### Database Migrations
 ```bash
-npm run db:push  # Sync Drizzle schema to database
+npm run db:push  # Sync Drizzle schema to database (no tables currently defined)
 ```
 
 ### Environment Variables
-- `DATABASE_URL` - PostgreSQL connection string (automatically set by Replit)
-- Other Neon database variables set automatically
+- `DATABASE_URL` - PostgreSQL connection string (automatically set by Replit, not currently used)
+- `PORT` - Server port (defaults to 5000)
 
 ## Recent Changes
 
-- **2024-11-08**: Initial implementation of National Parks voting app
-  - Created database schema for parks and votes
-  - Implemented ELO rating calculation system
-  - Built voting UI with matchup display
-  - Added rankings and recent votes displays
-  - Integrated Neon PostgreSQL with transaction support
-  - Seeded database with 24 National Parks
+- **2024-11-08**: Converted from National Parks voting app to SEO Meta Tag Analyzer
+  - Removed parks and votes database tables
+  - Implemented SEO analysis endpoint with Cheerio web scraping
+  - Updated all frontend components to display SEO analysis results
+  - Added comprehensive meta tag validation and categorization
+  - Integrated preview cards for Google, Facebook, and Twitter
+  - Created SEO Performance Dashboard with scoring and charts
+  - Fixed server initialization to properly create HTTP server
