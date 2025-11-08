@@ -1,79 +1,75 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { VotingMatchup } from "@/components/VotingMatchup";
-import { Rankings } from "@/components/Rankings";
-import { RecentVotes } from "@/components/RecentVotes";
-import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw } from "lucide-react";
-import { type Park } from "@shared/schema";
-
-interface Matchup {
-  park1: Park;
-  park2: Park;
-}
-
-interface VoteWithDetails {
-  id: string;
-  timestamp: Date;
-  winner: Park;
-  loser: Park;
-}
+import URLInput from "@/components/URLInput";
+import { SEODashboard } from "@/components/SEODashboard";
+import { CategoryOverview } from "@/components/CategoryOverview";
+import PreviewSection from "@/components/PreviewSection";
+import MetaTagsList from "@/components/MetaTagsList";
+import { type SEOAnalysis } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
+  const [analysis, setAnalysis] = useState<SEOAnalysis | null>(null);
 
-  // Fetch current matchup
-  const { data: matchup, isLoading: isLoadingMatchup, refetch: refetchMatchup } = useQuery<Matchup>({
-    queryKey: ["/api/matchup"],
-  });
-
-  // Fetch rankings
-  const { data: rankings = [], isLoading: isLoadingRankings } = useQuery<Park[]>({
-    queryKey: ["/api/rankings"],
-  });
-
-  // Fetch recent votes
-  const { data: recentVotes = [], isLoading: isLoadingVotes } = useQuery<VoteWithDetails[]>({
-    queryKey: ["/api/recent-votes"],
-  });
-
-  // Vote mutation
-  const voteMutation = useMutation({
-    mutationFn: async ({ winnerId, loserId }: { winnerId: string; loserId: string }) => {
-      const response = await apiRequest("POST", "/api/vote", { winnerId, loserId });
+  const analyzeMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await apiRequest("POST", "/api/analyze", { url });
       return response.json();
     },
-    onSuccess: () => {
-      // Refetch all data after voting
-      queryClient.invalidateQueries({ queryKey: ["/api/matchup"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/rankings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/recent-votes"] });
-      
+    onSuccess: (data: SEOAnalysis) => {
+      setAnalysis(data);
       toast({
-        title: "Vote Recorded!",
-        description: "Your vote has been counted and ELO ratings updated.",
+        title: "Analysis Complete",
+        description: "SEO meta tags have been analyzed successfully.",
       });
-      
-      // Get next matchup
-      refetchMatchup();
     },
     onError: (error: Error) => {
       toast({
-        title: "Vote Failed",
-        description: error.message || "Failed to record your vote. Please try again.",
+        title: "Analysis Failed",
+        description: error.message || "Failed to analyze URL. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const handleVote = (winnerId: string, loserId: string) => {
-    voteMutation.mutate({ winnerId, loserId });
+  const handleAnalyze = (url: string) => {
+    analyzeMutation.mutate(url);
   };
 
-  const handleSkip = () => {
-    refetchMatchup();
+  const handleCategoryClick = (categoryId: string) => {
+    const element = document.getElementById(categoryId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
+
+  // Helper to extract preview data from analysis
+  const getPreviewData = () => {
+    if (!analysis) return null;
+
+    const ogTitle = analysis.openGraphTags.find(t => t.name === "OG Title")?.content;
+    const ogDescription = analysis.openGraphTags.find(t => t.name === "OG Description")?.content;
+    const ogImage = analysis.openGraphTags.find(t => t.name === "OG Image")?.content;
+    const twitterTitle = analysis.twitterTags.find(t => t.name === "Twitter Title")?.content;
+    const twitterDescription = analysis.twitterTags.find(t => t.name === "Twitter Description")?.content;
+    const twitterImage = analysis.twitterTags.find(t => t.name === "Twitter Image")?.content;
+
+    return {
+      title: analysis.title || "",
+      description: analysis.description || "",
+      url: analysis.url,
+      ogTitle,
+      ogDescription,
+      ogImage,
+      twitterTitle,
+      twitterDescription,
+      twitterImage,
+    };
+  };
+
+  const previewData = getPreviewData();
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,78 +77,139 @@ export default function Home() {
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-2xl font-bold" data-testid="text-app-title">
-            National Parks Ranker
+            SEO Meta Tag Analyzer
           </h1>
           <p className="text-sm text-muted-foreground hidden sm:block">
-            Vote on your favorite parks • Powered by ELO rating
+            Analyze and optimize your website's SEO
           </p>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Voting Section */}
+        {/* URL Input Section */}
         <section className="mb-12">
-          {isLoadingMatchup ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : matchup ? (
-            <>
-              <VotingMatchup
-                park1={matchup.park1}
-                park2={matchup.park2}
-                onVote={handleVote}
-                isVoting={voteMutation.isPending}
-              />
-              <div className="text-center mt-6">
-                <Button
-                  variant="outline"
-                  onClick={handleSkip}
-                  disabled={voteMutation.isPending}
-                  data-testid="button-skip"
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Skip & Get New Matchup
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-20">
-              <p className="text-muted-foreground">No matchup available</p>
-            </div>
-          )}
+          <div className="max-w-4xl mx-auto text-center mb-8">
+            <h2 className="text-3xl font-bold mb-4">
+              Optimize Your Website's SEO
+            </h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Analyze meta tags, validate SEO best practices, and preview how your site appears on Google, Facebook, and Twitter
+            </p>
+            <URLInput
+              onAnalyze={handleAnalyze}
+              isLoading={analyzeMutation.isPending}
+            />
+          </div>
         </section>
 
-        {/* Rankings and Recent Votes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Rankings */}
-          <section>
-            {isLoadingRankings ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <Rankings parks={rankings} />
-            )}
-          </section>
+        {/* Analysis Results */}
+        {analysis && (
+          <div className="space-y-12">
+            {/* SEO Performance Dashboard */}
+            <section>
+              <SEODashboard analysis={analysis} />
+            </section>
 
-          {/* Recent Votes */}
-          <section>
-            {isLoadingVotes ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <RecentVotes votes={recentVotes} />
-            )}
-          </section>
-        </div>
+            {/* Category Overview */}
+            <section>
+              <CategoryOverview
+                analysis={analysis}
+                onCategoryClick={handleCategoryClick}
+              />
+            </section>
+
+            {/* Two-column layout for previews and meta tags */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+              {/* Meta Tags List (Left - 3 columns) */}
+              <section className="lg:col-span-3 space-y-8">
+                <div id="essential">
+                  <h2 className="text-2xl font-semibold mb-4">Essential SEO Tags</h2>
+                  <MetaTagsList
+                    tags={analysis.essentialTags.map(t => ({
+                      name: t.name,
+                      value: t.content,
+                      status: t.status as any,
+                      characterCount: t.characterCount,
+                      recommendation: t.recommendation || "",
+                      optimalRange: t.optimalRange,
+                    }))}
+                  />
+                </div>
+
+                <div id="opengraph">
+                  <h2 className="text-2xl font-semibold mb-4">Open Graph Tags</h2>
+                  <MetaTagsList
+                    tags={analysis.openGraphTags.map(t => ({
+                      name: t.name,
+                      value: t.content,
+                      status: t.status as any,
+                      characterCount: t.characterCount,
+                      recommendation: t.recommendation || "",
+                      optimalRange: t.optimalRange,
+                    }))}
+                  />
+                </div>
+
+                <div id="twitter">
+                  <h2 className="text-2xl font-semibold mb-4">Twitter Card Tags</h2>
+                  <MetaTagsList
+                    tags={analysis.twitterTags.map(t => ({
+                      name: t.name,
+                      value: t.content,
+                      status: t.status as any,
+                      characterCount: t.characterCount,
+                      recommendation: t.recommendation || "",
+                      optimalRange: t.optimalRange,
+                    }))}
+                  />
+                </div>
+
+                <div id="technical">
+                  <h2 className="text-2xl font-semibold mb-4">Technical SEO</h2>
+                  <MetaTagsList
+                    tags={analysis.technicalTags.map(t => ({
+                      name: t.name,
+                      value: t.content,
+                      status: t.status as any,
+                      characterCount: t.characterCount,
+                      recommendation: t.recommendation || "",
+                      optimalRange: t.optimalRange,
+                    }))}
+                  />
+                </div>
+              </section>
+
+              {/* Preview Section (Right - 2 columns, sticky) */}
+              <section className="lg:col-span-2">
+                {previewData && (
+                  <div>
+                    <h2 className="text-2xl font-semibold mb-4">Preview</h2>
+                    <PreviewSection {...previewData} />
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!analysis && !analyzeMutation.isPending && (
+          <div className="max-w-3xl mx-auto text-center py-16">
+            <div className="space-y-4">
+              <div className="text-6xl mb-4">🔍</div>
+              <h3 className="text-2xl font-semibold">Ready to Analyze</h3>
+              <p className="text-muted-foreground">
+                Enter a URL above to get a comprehensive SEO analysis with actionable recommendations
+              </p>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="border-t mt-16">
         <div className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-          <p>Help us rank America's National Parks using the chess ELO rating system</p>
+          <p>Analyze and optimize your website's SEO performance</p>
         </div>
       </footer>
     </div>
