@@ -33,10 +33,17 @@ Preferred communication style: Simple, everyday language.
   - Overall SEO score calculation: (passed + warnings * 0.5) / totalChecks * 100
   - Performance level badges: Excellent (90%+), Good (75-89%), Fair (60-74%), Needs Improvement (40-59%), Poor (<40%)
   - KPI metrics cards with color-coded icons for Passed Checks, Warnings, and Failed Checks
+- Category Breakdown section with visual category summaries
+  - Four category cards: Essential SEO, Open Graph, Twitter Card, Technical SEO
+  - Each card shows: category score, status badge, color-coded progress bar, and pass/warning/fail metrics
+  - Cards are clickable and smoothly scroll to detailed sections
+  - Category-specific scoring: Excellent (90%+), Good (70-89%), Fair (50-69%), Needs Work (<50%)
+  - Color-coded visual indicators: green (excellent), blue (good), yellow (fair), red (needs work)
 - Two-column desktop layout: Meta tags list (60%) and preview cards (40% sticky)
 - Single-column mobile layout with stacked components
 - Preview cards showing Google Search, Facebook, and Twitter appearances
 - Meta tag cards with expandable details, copy functionality, and status badges
+- Progressive disclosure: high-level summaries first, drill down to details on demand
 
 ### Backend Architecture
 
