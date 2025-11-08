@@ -17,7 +17,7 @@ export default function GooglePreview({ title, url, description }: GooglePreview
           <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
             G
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground" data-testid="text-google-url">
             {breadcrumbs.map((part, i) => (
               <span key={i}>
                 {part}
