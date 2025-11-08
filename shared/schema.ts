@@ -1,46 +1,67 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
+// National Parks table
+export const parks = pgTable("parks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  name: text("name").notNull(),
+  location: text("location").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url").notNull(),
+  eloRating: integer("elo_rating").notNull().default(1500),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertParkSchema = createInsertSchema(parks).omit({
+  id: true,
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type InsertPark = z.infer<typeof insertParkSchema>;
+export type Park = typeof parks.$inferSelect;
 
-// SEO Analysis Types
-export const tagStatusSchema = z.enum(["optimal", "present", "missing", "warning"]);
-export type TagStatus = z.infer<typeof tagStatusSchema>;
-
-export const metaTagSchema = z.object({
-  name: z.string(),
-  value: z.string().optional(),
-  status: tagStatusSchema,
-  characterCount: z.number().optional(),
-  recommendation: z.string(),
-  optimalRange: z.string().optional(),
+// Votes table
+export const votes = pgTable("votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  winnerId: varchar("winner_id").notNull().references(() => parks.id),
+  loserId: varchar("loser_id").notNull().references(() => parks.id),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
-export const seoAnalysisSchema = z.object({
-  url: z.string(),
-  title: z.string(),
-  description: z.string(),
-  essentialTags: z.array(metaTagSchema),
-  openGraphTags: z.array(metaTagSchema),
-  twitterTags: z.array(metaTagSchema),
-  technicalTags: z.array(metaTagSchema),
-  ogImage: z.string().optional(),
-  twitterImage: z.string().optional(),
+export const insertVoteSchema = createInsertSchema(votes).omit({
+  id: true,
+  timestamp: true,
 });
 
-export type MetaTag = z.infer<typeof metaTagSchema>;
-export type SEOAnalysis = z.infer<typeof seoAnalysisSchema>;
+export type InsertVote = z.infer<typeof insertVoteSchema>;
+export type Vote = typeof votes.$inferSelect;
+
+// Vote submission schema (for API)
+export const voteSubmissionSchema = z.object({
+  winnerId: z.string(),
+  loserId: z.string(),
+});
+
+export type VoteSubmission = z.infer<typeof voteSubmissionSchema>;
+
+// Matchup response type
+export const matchupSchema = z.object({
+  park1: z.object({
+    id: z.string(),
+    name: z.string(),
+    location: z.string(),
+    description: z.string(),
+    imageUrl: z.string(),
+    eloRating: z.number(),
+  }),
+  park2: z.object({
+    id: z.string(),
+    name: z.string(),
+    location: z.string(),
+    description: z.string(),
+    imageUrl: z.string(),
+    eloRating: z.number(),
+  }),
+});
+
+export type Matchup = z.infer<typeof matchupSchema>;
