@@ -9,12 +9,23 @@ interface URLInputProps {
 }
 
 export default function URLInput({ onAnalyze, isLoading = false }: URLInputProps) {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState("https://");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    // Ensure the value always starts with "https://"
+    if (newValue.startsWith("https://")) {
+      setUrl(newValue);
+    } else {
+      setUrl("https://");
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (url.trim()) {
-      onAnalyze(url.trim());
+    // Only submit if there's more than just "https://"
+    if (url.length > 8) {
+      onAnalyze(url);
     }
   };
 
@@ -25,10 +36,10 @@ export default function URLInput({ onAnalyze, isLoading = false }: URLInputProps
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              type="url"
+              type="text"
               placeholder="https://example.com"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={handleChange}
               className="pl-9 h-14 text-base"
               disabled={isLoading}
               data-testid="input-url"
@@ -37,7 +48,7 @@ export default function URLInput({ onAnalyze, isLoading = false }: URLInputProps
           <Button
             type="submit"
             size="lg"
-            disabled={!url.trim() || isLoading}
+            disabled={url.length <= 8 || isLoading}
             className="h-14 px-6"
             data-testid="button-analyze"
           >
@@ -52,7 +63,7 @@ export default function URLInput({ onAnalyze, isLoading = false }: URLInputProps
           </Button>
         </div>
         <p className="text-sm text-muted-foreground text-center">
-          Enter any URL to analyze SEO meta tags and preview search results
+          Enter a domain to analyze SEO meta tags and preview search results
         </p>
       </form>
     </div>
