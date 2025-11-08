@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Search } from "lucide-react";
 import URLInput from "@/components/URLInput";
 import { SEODashboard } from "@/components/SEODashboard";
 import { CategoryOverview } from "@/components/CategoryOverview";
@@ -196,7 +197,11 @@ export default function Home() {
         {!analysis && !analyzeMutation.isPending && (
           <div className="max-w-3xl mx-auto text-center py-16">
             <div className="space-y-4">
-              <div className="text-6xl mb-4">🔍</div>
+              <div className="mb-4 flex justify-center">
+                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center">
+                  <Search className="w-12 h-12 text-muted-foreground" />
+                </div>
+              </div>
               <h3 className="text-2xl font-semibold">Ready to Analyze</h3>
               <p className="text-muted-foreground">
                 Enter a URL above to get a comprehensive SEO analysis with actionable recommendations
